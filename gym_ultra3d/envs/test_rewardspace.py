@@ -17,19 +17,20 @@ INFILE = '/home/nathanvw/dev/RL/data/3DUS/np/np06resized.npy'
 MASKFILE = '/home/nathanvw/dev/RL/data/3DUS/np/mask.png'
 ALPHA_MAX = 0.1
 
-TARGET_D = 0.1
-TARGET_A = 0.1
+TARGET_D = 0.01
+TARGET_A = 0.01
+NETSIZE = 128
 
 ACTION_LOOKUP = {
-    0 : {-1,-1},
-    1 : {-1, 0},
-    2 : {-1, 1},
-    3 : {0 ,-1},
-    4 : {0 , 0},
-    5 : {0 , 1},
-    6 : {1 ,-1},
-    7 : {1 , 0},
-    8 : {1 , 1},
+    0: [-1, 1],
+    1: [-1, 0],
+    2: [-1, 1],
+    3: [0 ,-1],
+    # Can't sit still!
+    4: [0 , 1],
+    5: [1 ,-1],
+    6: [1 , 0],
+    7: [1 , 1]
 }
 
 class Ultra3DEnv():
@@ -53,7 +54,7 @@ class Ultra3DEnv():
 
         # Set the target image
         TrueAP4 = self.get_slice(TARGET_D, TARGET_A)
-        self.display_slice(TrueAP4)
+        ###self.display_slice(TrueAP4)
         self.TrueAP4_masked = self.mean_mask(TrueAP4)
         self.maxreward = self.correlate(TrueAP4)
 
@@ -99,10 +100,11 @@ class Ultra3DEnv():
         self._take_action(action)
         reward = self._get_reward()
         ob = self._get_state()
-        if reward > 1.2:
+        if reward > 1.25:
             #print("Close enough! TrueAP4 Found!")
+            #reward = 100
             episode_over = True
-        elif reward < -0.3:
+        elif reward < -0.4:
             #print("Too far, exiting")
             episode_over = True
         else:
@@ -125,19 +127,19 @@ class Ultra3DEnv():
     def _get_reward(self):
         curr_slice_masked = self.mean_mask(self.curr_slice)
         x = (2*self.correlate(curr_slice_masked)-self.maxreward)/self.maxreward
-        self.alpha = ALPHA_MAX * (1-x)/2  # Adjust alpha based on current reward
-        return x+0.5 #math.exp(3*x-0.5)-1
+        self.alpha = ALPHA_MAX #* (1-x)/2  # Adjust alpha based on current reward
+        return x #math.exp(3*x-0.5)-1
 
     def _get_state(self):
-        return np.divide(self.curr_slice,255.,dtype=np.float)
+        return spm.imresize(np.divide(self.curr_slice,255.,dtype=np.float),(NETSIZE,NETSIZE))
 
     def reset(self,d,a):
         #self.curr_episode += 1
         #self.action_episode_memory.append([])
 
         # Random init of state
-        self.curr_d = d#random.uniform(-1,1)
-        self.curr_a = a#random.uniform(-1,1)
+        self.curr_d = d
+        self.curr_a = a
         self.alpha = ALPHA_MAX
         self.curr_slice = self.get_slice(self.curr_d, self.curr_a)
         return self._get_state()
@@ -158,6 +160,64 @@ class Ultra3DEnv():
                 0  = no rotation
                 1  = 90 degrees"""
     def get_slice(self, dist_n, angle_n):
+        angle = angle_n*math.pi
+        dist = dist_n*(self.x0-1)/2
+        #print("Requested angle =", math.degrees(angle), "deg \tdist =", dist)
+
+        # --- 1: Find x_i and y_i's ---
+        # 1.0 Corner cases
+        if angle==0 or angle==math.pi/2 or angle==math.pi:
+            angle -= 0.0000001
+        if angle==-math.pi/2 or angle==-math.pi:
+            angle += 0.0000001
+
+        # 1.1 first x1,x2 and y1,y2
+        x1 = (self.x0 + self.y0*math.tan(angle))/2 + dist/math.cos(angle)
+        x2 = (self.x0 - self.y0*math.tan(angle))/2 + dist/math.cos(angle)
+        y1 = self.y0/2 - self.x0/math.tan(abs(angle))/2 + dist/math.sin(angle)
+        y2 = self.y0/2 + self.x0/math.tan(abs(angle))/2 + dist/math.sin(angle)
+
+        # 1.2 more corner cases
+        if abs(angle) > math.pi/2:
+            temp = x2
+            x2 = x1
+            x1 = temp
+
+        # 1.3 Threshold
+        x1,y1 = self.threshold(x1,y1)
+        x2,y2 = self.threshold(x2,y2)
+        #print("x1=",x1," x2=",x2,"\ty1=",y1," y2=",y2)
+
+        # 1.4 Calc x_i's, y_i's
+        len_px = round(math.sqrt(math.pow((y1-y2),2)+math.pow((x1-x2),2)))+1
+        x_i = np.linspace(x1,x2,len_px)
+        y_i = np.linspace(y1,y2,len_px)
+        #print("length =",len_px)
+
+        # --- 2: Construct slice from x/y_i's ---
+        slice = np.zeros((len_px,self.z0),dtype='uint8')
+        for i in range(0,len_px):
+            x_c, y_c = int(round(x_i[i])), int(round(y_i[i]))
+            slice[i,:] = self.data[x_c,y_c,:]
+
+        # --- 3: Mask slice ---
+        mid = len_px/2
+        if(len_px > self.x0):
+            start = math.floor(mid-self.x0/2)
+            end = math.floor(mid+self.x0/2)
+            #print('start =',start,'end =',end,)
+            slice = slice[start:end,:]
+        elif len_px < self.x0:
+            leftpad = math.floor((self.x0-len_px)/2)
+            rightpad = self.x0 - leftpad - len_px
+            #print('left=',leftpad,'right=',rightpad, 'sum =',leftpad+rightpad+len_px)
+            slice = np.concatenate((
+                np.zeros((leftpad,self.z0),dtype='uint8'),
+                slice,
+                np.zeros((rightpad,self.z0),dtype='uint8')))
+        return slice
+
+    def get_slice_slow(self, dist_n, angle_n):
         if dist_n > 1. or dist_n < -1.:
             raise RuntimeError("given distance exceeds threshold")
         if angle_n > 1. or angle_n < -1.:
@@ -200,13 +260,18 @@ class Ultra3DEnv():
 
     def display_slice(self, slice):
         slice = np.flipud(np.transpose(slice))
-        img = Image.fromarray(slice, 'L')
-        img.show()
+        plt.imshow(slice, interpolation='nearest')
+        plt.show()
 
     def seed(self, seed):
         random.seed(seed)
 
-N = 20
+    def threshold(self, xi, yi):
+        xo = max(0, min(self.x0 - 1, xi))
+        yo = max(0, min(self.y0 - 1, yi))
+        return xo, yo
+
+N = 40
 env3d = Ultra3DEnv()
 d_arr = np.linspace(-1,1,N)
 a_arr = np.linspace(-1,1,N)
@@ -233,4 +298,5 @@ fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 Axes3D.plot_wireframe(ax,x,y,z)
 fig.show()
+
 input("Press something...")

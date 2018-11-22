@@ -6,7 +6,8 @@ import numpy as np
 import math
 import scipy.ndimage.interpolation as spi
 import scipy.misc as spm
-from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 
 import logging
 logger = logging.getLogger(__name__)
@@ -14,22 +15,24 @@ logger = logging.getLogger(__name__)
 INFILE = '/home/nathanvw/dev/RL/data/3DUS/np/np06resized.npy'
 MASKFILE = '/home/nathanvw/dev/RL/data/3DUS/np/mask.png'
 ALPHA_MAX = 0.1
-
+NETSIZE = 128
 TARGET_D = 0.02
 TARGET_A = 0.02
 
-ACTION_LOOKUP = {
-    0 : {-1,-1},
-    1 : {-1, 0},
-    2 : {-1, 1},
-    3 : {0 ,-1},
-    4 : {0 , 1},
-    5 : {1 ,-1},
-    6 : {1 , 0},
-    7 : {1 , 1},
-}
-
 class Ultra3DEnv(gym.Env):
+
+    ACTION_LOOKUP = {
+        0: [-1, 1],
+        1: [-1, 0],
+        2: [-1, 1],
+        3: [0 ,-1],
+        # Can't sit still!
+        4: [0 , 1],
+        5: [1 ,-1],
+        6: [1 , 0],
+        7: [1 , 1]
+    }
+
     metadata = {'render.modes': ['human']}
 
     def __init__(self):
@@ -50,15 +53,17 @@ class Ultra3DEnv(gym.Env):
 
         # Set the target image
         TrueAP4 = self.get_slice(TARGET_D, TARGET_A)
-        self.display_slice(TrueAP4)
         self.TrueAP4_masked = self.mean_mask(TrueAP4)
         self.maxreward = self.correlate(TrueAP4)
 
         # Define what the agent can do
-        self.action_space = spaces.Discrete(len(ACTION_LOOKUP))
+        self.action_space = spaces.Discrete(len(self.ACTION_LOOKUP))
 
         # Observation space is the range of valid states
         self.observation_space = spaces.Box(low=0., high=1., shape=(self.x0,self.y0))
+
+        # Set up plot in case visualize is on
+        self.plot_opened = False
 
         # Store what the agent tried
         #self.curr_episode = -1
@@ -96,24 +101,24 @@ class Ultra3DEnv(gym.Env):
         self._take_action(action)
         reward = self._get_reward()
         ob = self._get_state()
-        if reward > 1.2:
+        if reward > 1.25:
             #print("Close enough! TrueAP4 Found!")
-            reward = 20
+            reward = 10
             episode_over = True
-        elif reward < -0.4:
+        elif reward < -0.45:
             #print("Too far, exiting")
             episode_over = True
         else:
             episode_over = False
 
-        print('curr_d =',self.curr_d,'\tcurr_a =',self.curr_a,'\treward =',reward,'\talpha =',self.alpha)
+        #print('Just took action #',action,': curr_d =',self.curr_d,'\tcurr_a =',self.curr_a,'\treward =',reward,'\talpha =',self.alpha)
         return ob, reward, episode_over, {}
 
     def _take_action(self, action):
         #self.action_episode_memory[self.curr_episode].append(action)
-        a = ACTION_LOOKUP[action]
-        self.curr_d = self.curr_d + self.alpha*next(iter(a))
-        self.curr_a = self.curr_a + self.alpha*next(iter(a))
+        act = self.ACTION_LOOKUP[action]
+        self.curr_d = self.curr_d + self.alpha*act[0]
+        self.curr_a = self.curr_a + self.alpha*act[1]
 
         # Threshold actions
         self.curr_d = min(1,max(-1,self.curr_d))
@@ -123,11 +128,11 @@ class Ultra3DEnv(gym.Env):
     def _get_reward(self):
         curr_slice_masked = self.mean_mask(self.curr_slice)
         x = (2*self.correlate(curr_slice_masked)-self.maxreward)/self.maxreward
-        self.alpha = ALPHA_MAX #* (1-x)/2  # Adjust alpha based on current reward
+        self.alpha = ALPHA_MAX*(1-x)/2  # Adjust alpha based on current reward
         return x+0.5 #math.exp(3*x-0.5)-1
 
     def _get_state(self):
-        return np.divide(self.curr_slice,255.,dtype=np.float)
+        return np.array(spm.imresize(self.curr_slice,(NETSIZE,NETSIZE)),dtype='float') / 255.0
 
     def reset(self):
         #self.curr_episode += 1
@@ -141,7 +146,49 @@ class Ultra3DEnv(gym.Env):
         return self._get_state()
 
     def render(self, mode='human', close=False):
-        self.display_slice(self.curr_slice)
+        #print("rendering with d =",self.curr_d," and a =",self.curr_a)
+        if self.plot_opened == False:
+            self.plot_opened = True
+            self.fig = plt.figure()
+            self.ax = self.fig.add_subplot(111, projection='3d')
+            plt.ion()
+            plt.show()
+
+        # Plot wireframe
+        self.ax.plot(xs=[-1, -1], ys=[-1, -1], zs=[-1, 1], color='b')
+        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[-1, -1], color='b')
+        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[-1, -1], color='b')
+        self.ax.plot(xs=[1, 1], ys=[1, 1], zs=[-1, 1], color='b')
+        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[1, 1], color='b')
+        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[1, 1], color='b')
+        self.ax.plot(xs=[-1, -1], ys=[1, 1], zs=[-1, 1], color='b')
+        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[1, 1], color='b')
+        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[1, 1], color='b')
+        self.ax.plot(xs=[1, 1], ys=[-1, -1], zs=[-1, 1], color='b')
+        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[-1, -1], color='b')
+        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[-1, -1], color='b')
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+
+        # Plot target
+        x1, x2, y1, y2 = self.get_bounds(TARGET_D, TARGET_A, normalize=True)
+        X = [[x1, x2], [x1, x2]]
+        Y = [[y1, y2], [y1, y2]]
+        Z = [[-1, -1], [1, 1]]
+        self.ax.plot_surface(X, Y, Z, alpha=0.5)
+
+        # Plot surface
+        x1, x2, y1, y2 = self.get_bounds(self.curr_d, self.curr_a, normalize=True)
+        X = [[x1, x2], [x1, x2]]
+        Y = [[y1, y2], [y1, y2]]
+        Z = [[-1, -1], [1, 1]]
+        self.ax.plot_surface(X, Y, Z, alpha=0.5)
+
+        plt.draw()
+        plt.pause(0.000001)
+        plt.cla()
+        return
 
     """ Parameters:
         data = 3D numpy array representing the raw 3DUS dataset
@@ -156,6 +203,39 @@ class Ultra3DEnv(gym.Env):
                 0  = no rotation
                 1  = 90 degrees"""
     def get_slice(self, dist_n, angle_n):
+        # --- 1: Find x_i and y_i's ---
+        x1,x2,y1,y2 = self.get_bounds(dist_n, angle_n)
+
+        # 1.4 Calc x_i's, y_i's
+        len_px = round(math.sqrt(math.pow((y1-y2),2)+math.pow((x1-x2),2)))+1
+        x_i = np.linspace(x1,x2,len_px)
+        y_i = np.linspace(y1,y2,len_px)
+        #print("length =",len_px)
+
+        # --- 2: Construct slice from x/y_i's ---
+        slice = np.zeros((len_px,self.z0),dtype='uint8')
+        for i in range(0,len_px):
+            x_c, y_c = int(round(x_i[i])), int(round(y_i[i]))
+            slice[i,:] = self.data[x_c,y_c,:]
+
+        # --- 3: Mask slice ---
+        mid = len_px/2
+        if(len_px > self.x0):
+            start = math.floor(mid-self.x0/2)
+            end = math.floor(mid+self.x0/2)
+            #print('start =',start,'end =',end,)
+            slice = slice[start:end,:]
+        elif len_px < self.x0:
+            leftpad = math.floor((self.x0-len_px)/2)
+            rightpad = self.x0 - leftpad - len_px
+            #print('left=',leftpad,'right=',rightpad, 'sum =',leftpad+rightpad+len_px)
+            slice = np.concatenate((
+                np.zeros((leftpad,self.z0),dtype='uint8'),
+                slice,
+                np.zeros((rightpad,self.z0),dtype='uint8')))
+        return slice
+
+    def get_slice_slow(self, dist_n, angle_n):
         if dist_n > 1. or dist_n < -1.:
             raise RuntimeError("given distance exceeds threshold")
         if angle_n > 1. or angle_n < -1.:
@@ -172,6 +252,40 @@ class Ultra3DEnv(gym.Env):
         slice = rot_vol[dist,:,:]
         return slice
 
+    def get_bounds(self, dist_n, angle_n, normalize=False):
+        angle = angle_n*math.pi
+        dist = dist_n*(self.x0-1)/2
+        #print("Requested angle =", math.degrees(angle), "deg \tdist =", dist)
+
+        # --- 1: Find x_i and y_i's ---
+        # 1.0 Corner cases
+        if angle==0 or angle==math.pi/2 or angle==math.pi:
+            angle -= 0.0000001
+        if angle==-math.pi/2 or angle==-math.pi:
+            angle += 0.0000001
+
+        # 1.1 first x1,x2 and y1,y2
+        x1 = (self.x0 + self.y0*math.tan(angle))/2 + dist/math.cos(angle)
+        x2 = (self.x0 - self.y0*math.tan(angle))/2 + dist/math.cos(angle)
+        y1 = self.y0/2 - self.x0/math.tan(abs(angle))/2 + dist/math.sin(angle)
+        y2 = self.y0/2 + self.x0/math.tan(abs(angle))/2 + dist/math.sin(angle)
+
+        # 1.2 more corner cases
+        if abs(angle) > math.pi/2:
+            temp = x2
+            x2 = x1
+            x1 = temp
+
+        # 1.3 Threshold
+        x1,y1 = self.threshold(x1,y1)
+        x2,y2 = self.threshold(x2,y2)
+        if normalize:
+            x1 = 2*x1 / self.x0 - 1
+            x2 = 2*x2 / self.x0 - 1
+            y1 = 2*y1 / self.y0 - 1
+            y2 = 2*y2 / self.y0 - 1
+        #print("x1=",x1," x2=",x2,"\ty1=",y1," y2=",y2)
+        return x1,x2,y1,y2
 
     ''' Parameters:
             slice: mean-subtracted image'''
@@ -198,8 +312,14 @@ class Ultra3DEnv(gym.Env):
 
     def display_slice(self, slice):
         slice = np.flipud(np.transpose(slice))
-        plt.imshow(slice, interpolation='nearest')
+        plt.imshow(slice)
+        plt.gray()
         plt.show()
 
     def seed(self, seed):
         random.seed(seed)
+
+    def threshold(self, xi, yi):
+        xo = max(0, min(self.x0 - 1, xi))
+        yo = max(0, min(self.y0 - 1, yi))
+        return xo, yo
