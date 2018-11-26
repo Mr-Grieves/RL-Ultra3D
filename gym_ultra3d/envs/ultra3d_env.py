@@ -8,6 +8,7 @@ import scipy.ndimage.interpolation as spi
 import scipy.misc as spm
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+from PIL import Image
 
 import logging
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ class Ultra3DEnv(gym.Env):
         TrueAP4 = self.get_slice(TARGET_D, TARGET_A)
         self.TrueAP4_masked = self.mean_mask(TrueAP4)
         self.maxreward = self.correlate(TrueAP4)
+        self.display_slice(TrueAP4)
 
         # Define what the agent can do
         self.action_space = spaces.Discrete(len(self.ACTION_LOOKUP))
@@ -64,6 +66,7 @@ class Ultra3DEnv(gym.Env):
 
         # Set up plot in case visualize is on
         self.plot_opened = False
+        self.success = 0
 
         # Store what the agent tried
         #self.curr_episode = -1
@@ -101,17 +104,20 @@ class Ultra3DEnv(gym.Env):
         self._take_action(action)
         reward = self._get_reward()
         ob = self._get_state()
-        if reward > 1.25:
+        if reward > 1.215:
             #print("Close enough! TrueAP4 Found!")
             reward = 10
             episode_over = True
+            self.success = 1
         elif reward < -0.45:
             #print("Too far, exiting")
             episode_over = True
+            self.success = -1
         else:
             episode_over = False
+            self.success = 0
 
-        #print('Just took action #',action,': curr_d =',self.curr_d,'\tcurr_a =',self.curr_a,'\treward =',reward,'\talpha =',self.alpha)
+        print('Just took action #',action,': curr_d =',self.curr_d,'\tcurr_a =',self.curr_a,'\treward =',reward,'\talpha =',self.alpha)
         return ob, reward, episode_over, {}
 
     def _take_action(self, action):
@@ -155,18 +161,22 @@ class Ultra3DEnv(gym.Env):
             plt.show()
 
         # Plot wireframe
-        self.ax.plot(xs=[-1, -1], ys=[-1, -1], zs=[-1, 1], color='b')
-        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[-1, -1], color='b')
-        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[-1, -1], color='b')
-        self.ax.plot(xs=[1, 1], ys=[1, 1], zs=[-1, 1], color='b')
-        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[1, 1], color='b')
-        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[1, 1], color='b')
-        self.ax.plot(xs=[-1, -1], ys=[1, 1], zs=[-1, 1], color='b')
-        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[1, 1], color='b')
-        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[1, 1], color='b')
-        self.ax.plot(xs=[1, 1], ys=[-1, -1], zs=[-1, 1], color='b')
-        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[-1, -1], color='b')
-        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[-1, -1], color='b')
+        colour_map = { -1 : 'r',
+                        0 : 'k',
+                        1 : 'g'}
+        frame_colour = colour_map.get(self.success)
+        self.ax.plot(xs=[-1, -1], ys=[-1, -1], zs=[-1, 1], color=frame_colour)
+        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[-1, -1], color=frame_colour)
+        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[-1, -1], color=frame_colour)
+        self.ax.plot(xs=[1, 1], ys=[1, 1], zs=[-1, 1], color=frame_colour)
+        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[1, 1], color=frame_colour)
+        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[1, 1], color=frame_colour)
+        self.ax.plot(xs=[-1, -1], ys=[1, 1], zs=[-1, 1], color=frame_colour)
+        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[1, 1], color=frame_colour)
+        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[1, 1], color=frame_colour)
+        self.ax.plot(xs=[1, 1], ys=[-1, -1], zs=[-1, 1], color=frame_colour)
+        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[-1, -1], color=frame_colour)
+        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[-1, -1], color=frame_colour)
         self.ax.set_xlabel('X')
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
@@ -183,10 +193,13 @@ class Ultra3DEnv(gym.Env):
         X = [[x1, x2], [x1, x2]]
         Y = [[y1, y2], [y1, y2]]
         Z = [[-1, -1], [1, 1]]
-        self.ax.plot_surface(X, Y, Z, alpha=0.5)
+        if(self.success):
+            self.ax.plot_surface(X, Y, Z, alpha=0.5, color=frame_colour)
+        else:
+            self.ax.plot_surface(X, Y, Z, alpha=0.5)
 
         plt.draw()
-        plt.pause(0.000001)
+        plt.pause(0.001)
         plt.cla()
         return
 
@@ -312,9 +325,12 @@ class Ultra3DEnv(gym.Env):
 
     def display_slice(self, slice):
         slice = np.flipud(np.transpose(slice))
-        plt.imshow(slice)
-        plt.gray()
-        plt.show()
+        if(slice.dtype == 'float'):
+            mi = np.amin(np.amin(slice))
+            ma = np.amax(np.amax(slice))
+            slice = np.uint8((slice+mi)/(ma-mi)*255)
+        img = Image.fromarray(slice, 'L')
+        img.show()
 
     def seed(self, seed):
         random.seed(seed)

@@ -24,8 +24,8 @@ args = parser.parse_args()
 
 # Get the environment and extract the number of actions.
 env = gym.make(ENV_NAME)
-np.random.seed(1)
-env.seed(1)
+np.random.seed(2)
+env.seed(2)
 nb_actions = env.action_space.n
 print(nb_actions)
 
@@ -42,7 +42,7 @@ print(model.summary())
 
 memory = SequentialMemory(limit=500000, window_length=WINDOW_LENGTH)
 policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.1, value_test=.05, nb_steps=500000)
-dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10, gamma=.9,
+dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10000, gamma=.9,
                target_model_update=10000, policy=policy)
 dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 
@@ -54,9 +54,9 @@ if args.mode == 'train':
 
     dqn.fit(env, nb_steps=500000, visualize=False, callbacks=callbacks, verbose=1)
     dqn.save_weights('dqn_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
-    dqn.test(env, nb_episodes=5,visualize=False)
+    dqn.test(env, nb_episodes=5,visualize=False, verbose=1)
 
 elif args.mode == 'test':
-    weights_filename = 'dqn_{}_weights.h5f'.format(ENV_NAME)
+    weights_filename = 'dqn_{}_weights_23-11-18.h5f'.format(ENV_NAME)
     dqn.load_weights(weights_filename)
-    dqn.test(env,nb_episodes=10,visualize=True, verbose=1)
+    dqn.test(env, nb_episodes=10,visualize=True, verbose=1)
