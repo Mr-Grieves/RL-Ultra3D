@@ -1,24 +1,10 @@
 # gym-ultra3d
 
-The [Soccer environment](https://github.com/LARG/HFO) is a multiagent
-domain featuring continuous state and action spaces. Currently,
-several tasks are supported:
+The Ultra-3D environment is a single agent domain featuring continuous state and discrete action spaces. The goal is to teach an agent to learn the shortest sequence of probe movements that would result in the capture of an optimal AP4 2D image. We use a DQN agent to explore the 3D ultrasound space, while feeding 2D cross-sections into a simple deep CNN network. The reinforcement learning makes use of the [keras-rl](https://keras-rl.readthedocs.io/en/latest/agents/overview/) python library, integrated with a custom implementation of [OpenAI's gym environment](https://gym.openai.com/docs/).
 
-## Soccer
-
-The soccer task initializes a single offensive agent on the field and rewards +1 for scoring a goal and 0 otherwise. In order to score a goal, the agent will need to know how to approach the ball and kick towards the goal. The sparse nature of the goal reward makes this task very difficult to accomplish.
-
-## SoccerEmptyGoal
-
-The SoccerEmptyGoal task features a more informative reward signal than the Soccer task. As before, the objective is to score a goal. However, SoccerEmtpyGoal rewards the agent for approaching the ball and moving the ball towards the goal. These frequent rewards make the task much more accessible.
-
-## SoccerAgainstKeeper
-
-The objective of the SoccerAgainstKeeper task is to score against a goal keeper. The agent is rewarded for moving the ball towards the goal and for scoring a goal. The goal keeper uses a hand-coded policy developed by the Helios RoboCup team. The difficulty in this task is learning how to shoot around the goal keeper.
-
-# Installation
+# To run the demo
 
 ```bash
-cd gym-soccer
-pip install -e .
+cd gym-ultra3d
+python3 dqn_ultra.py --mode=test
 ```
