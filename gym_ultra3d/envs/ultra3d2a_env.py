@@ -18,7 +18,11 @@ MASKFILE = 'data/3DUS/np/mask.png'
 PHI_MAX = 30
 ALPHA_MAX = 0.1
 NETSIZE = 128
-NUM_STEPS_MAX = 300
+
+HIGH_REWARD_THRESH = 1.35
+LOW_REWARD_THRESH = -0.43
+
+NUM_STEPS_MAX = 100
 TARGET_THETA = 0.02
 TARGET_PHI = 0.02
 
@@ -108,15 +112,19 @@ class Ultra3DEnv2A(gym.Env):
         reward = self._get_reward()
         ob = self._get_state()
         self.num_steps += 1
-        if reward > 1.21:
+        if reward > HIGH_REWARD_THRESH:
             #print("Close enough! TrueAP4 Found!")
             episode_over = True
             reward = 100
             self.success = 1
-        elif reward < -0.42 or self.num_steps >= NUM_STEPS_MAX:
+        elif reward < LOW_REWARD_THRESH:
             #print("Too far, exiting")
             episode_over = True
             reward = -10
+            self.success = -1
+        elif self.num_steps >= NUM_STEPS_MAX:
+            episode_over = True
+            reward = -NUM_STEPS_MAX
             self.success = -1
         else:
             episode_over = False

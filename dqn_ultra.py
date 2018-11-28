@@ -19,22 +19,20 @@ WINDOW_LENGTH = 4
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', choices=['train','test'], default='train')
-parser.add_argument('--version', choices=['0','1'], default='1')
 args = parser.parse_args()
 
-if args.version == 0:
-    ENV_NAME = 'Ultra3D-v0'
-    weights_filename = 'dqn_{}_weights_23-11-18.h5f'.format(ENV_NAME) if args.mode == 'test' \
-                  else 'dqn_{}_weights.h5f'.format(ENV_NAME)
-else:
-    ENV_NAME = 'Ultra3D-v1'
-    weights_filename = 'dqn_{}_weights_28-11-18.h5f'.format(ENV_NAME) if args.mode == 'test' \
-                  else 'dqn_{}_weights.h5f'.format(ENV_NAME)
+''' --- For the 1d 1a version --- '''
+# ENV_NAME = 'Ultra3D-v0'
+# SAVED_WEIGHT_FILE = 'dqn_{}_weights_23-11-18.h5f'.format(ENV_NAME)
+
+''' --- For the 2a version --- '''
+ENV_NAME = 'Ultra3D-v1'
+SAVED_WEIGHT_FILE = 'dqn_{}_weights_28-11-18.h5f'.format(ENV_NAME)
 
 # Get the environment and extract the number of actions.
 env = gym.make(ENV_NAME)
-np.random.seed(10)
-env.seed(10)
+np.random.seed(1)
+env.seed(1)
 nb_actions = env.action_space.n
 print(nb_actions)
 
@@ -56,6 +54,7 @@ dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmu
 dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 
 if args.mode == 'train':
+    weights_filename = 'dqn_{}_weights.h5f'.format(ENV_NAME)
     checkpoint_weights_filename = 'dqn_' + ENV_NAME + '_weights_{step}.h5f'
     log_filename = 'dqn_{}_log.json'.format(ENV_NAME)
     callbacks = [ModelIntervalCheckpoint(checkpoint_weights_filename, interval=10000)]
@@ -65,5 +64,6 @@ if args.mode == 'train':
     #dqn.test(env, nb_episodes=5,visualize=False, verbose=1)
 
 elif args.mode == 'test':
+    weights_filename = SAVED_WEIGHT_FILE
     dqn.load_weights(weights_filename)
     dqn.test(env, nb_episodes=10,visualize=True, verbose=1)
