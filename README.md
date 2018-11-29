@@ -5,7 +5,7 @@ The Ultra-3D environment is a single agent domain featuring continuous state and
 # To run the demo
 
 ```bash
-cd gym-ultra3d
+cd RL-Ultra3D
 pip3 install -r requirements.txt
 python3 dqn_ultra.py --mode=test
 ```

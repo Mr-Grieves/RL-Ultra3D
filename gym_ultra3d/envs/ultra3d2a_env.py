@@ -10,41 +10,36 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from PIL import Image
 
-import logging
-logger = logging.getLogger(__name__)
-
 INFILE = 'data/3DUS/np/np06resized.npy'
 MASKFILE = 'data/3DUS/np/mask.png'
 PHI_MAX = 30
 ALPHA_MAX = 0.1
 NETSIZE = 128
 
-HIGH_REWARD_THRESH = 1.35
-LOW_REWARD_THRESH = -0.43
+HIGH_REWARD_THRESH = 1.37
+LOW_REWARD_THRESH = -0.41
 
-NUM_STEPS_MAX = 100
+NUM_STEPS_MAX = 150
 TARGET_THETA = 0.02
 TARGET_PHI = 0.02
 
 class Ultra3DEnv2A(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    # Can't sit still!
     ACTION_LOOKUP = {
         0: [-1,-1],
         1: [-1, 0],
         2: [-1, 1],
         3: [ 0,-1],
-        #: [ 0, 0],
         4: [ 0, 1],
         5: [ 1,-1],
         6: [ 1, 0],
-        7: [ 1, 1]
+        7: [ 1, 1],
+        #8: [ 0, 0], # Can't sit still!
     }
 
     def __init__(self):
-        self.__version__ = "0.0"
-        logging.info("Ultra3D - Version {}".format(self.__version__))
+        self.__version__ = "1.0"
 
         # Load the np-converted dataset
         self.data = np.load(INFILE)
@@ -76,7 +71,7 @@ class Ultra3DEnv2A(gym.Env):
         self.num_steps = 0
 
         # Store what the agent tried
-        #self.curr_episode = -1
+        self.curr_episode = -1
         #self.action_episode_memory = []
 
     def step(self, action):
@@ -123,8 +118,9 @@ class Ultra3DEnv2A(gym.Env):
             reward = -10
             self.success = -1
         elif self.num_steps >= NUM_STEPS_MAX:
+            #print("TOOMANYZOOS")
             episode_over = True
-            reward = -NUM_STEPS_MAX
+            reward = -10
             self.success = -1
         else:
             episode_over = False
@@ -138,10 +134,9 @@ class Ultra3DEnv2A(gym.Env):
         act = self.ACTION_LOOKUP[action]
         self.curr_th = self.curr_th + self.alpha*act[0]
         self.curr_ph = self.curr_ph + self.alpha*act[1]
+        self.curr_th = (self.curr_th+1)%2-1         # Wrap theta
+        self.curr_ph = min(1,max(-1,self.curr_ph))  # Threshold phi
 
-        # Threshold actions
-        self.curr_th = min(1,max(-1,self.curr_th))
-        self.curr_ph = min(1,max(-1,self.curr_ph))
         self.curr_slice = self.get_slice(self.curr_th, self.curr_ph)
 
     def _get_reward(self):
@@ -154,7 +149,7 @@ class Ultra3DEnv2A(gym.Env):
         return np.array(spm.imresize(self.curr_slice,(NETSIZE,NETSIZE)),dtype='float') / 255.0
 
     def reset(self):
-        #self.curr_episode += 1
+        self.curr_episode += 1
         #self.action_episode_memory.append([])
 
         # Random init of state
@@ -171,6 +166,7 @@ class Ultra3DEnv2A(gym.Env):
         self.curr_ph = phi
         self.alpha = ALPHA_MAX
         self.curr_slice = self.get_slice(self.curr_th, self.curr_ph)
+        self.num_steps = 0
         return self._get_state()
 
     def render(self, mode='human', close=False):
@@ -241,27 +237,27 @@ class Ultra3DEnv2A(gym.Env):
         theta = theta_n*math.pi
         phi = math.radians(phi_n*PHI_MAX)
 
-        b1 = [ math.sin(theta) - math.sin(phi)*math.cos(theta),
-              -math.cos(theta) - math.sin(phi)*math.sin(theta),
-              -math.cos(phi)]
+        b1 = [max(-1., min(1., math.sin(theta) - math.sin(phi)*math.cos(theta))),
+              max(-1., min(1., -math.cos(theta) - math.sin(phi)*math.sin(theta))),
+              max(-1., min(1., -math.cos(phi)))]
 
-        b2 = [-math.sin(theta) - math.sin(phi)*math.cos(theta),
-               math.cos(theta) - math.sin(phi)*math.sin(theta),
-              -math.cos(phi)]
+        b2 = [max(-1., min(1., -math.sin(theta) - math.sin(phi)*math.cos(theta))),
+              max(-1., min(1., math.cos(theta) - math.sin(phi)*math.sin(theta))),
+              max(-1., min(1., -math.cos(phi)))]
 
-        b3 = [ math.sin(theta) + math.sin(phi)*math.cos(theta),
-              -math.cos(theta) + math.sin(phi)*math.sin(theta),
-               math.cos(phi)]
+        b3 = [max(-1., min(1., math.sin(theta) + math.sin(phi)*math.cos(theta))),
+              max(-1., min(1., -math.cos(theta) + math.sin(phi)*math.sin(theta))),
+              max(-1., min(1., math.cos(phi)))]
 
-        b4 = [-math.sin(theta) + math.sin(phi)*math.cos(theta),
-               math.cos(theta) + math.sin(phi)*math.sin(theta),
-               math.cos(phi)]
+        b4 = [max(-1., min(1., -math.sin(theta) + math.sin(phi)*math.cos(theta))),
+              max(-1., min(1., math.cos(theta) + math.sin(phi)*math.sin(theta))),
+              max(-1., min(1., math.cos(phi)))]
 
         #print("theta =",math.degrees(theta),"\tphi =",math.degrees(phi),"\t\th1 =,",h1,"\th2 =",h2,"\tv1 =",v1,"\tv2 =",v2)
         return b1, b2, b3, b4
 
 
-    def get_slice(self, theta_n, phi_n):
+    '''def get_slice(self, theta_n, phi_n):
         theta = theta_n*math.pi
         phi = math.radians(phi_n*PHI_MAX)
 
@@ -286,9 +282,48 @@ class Ultra3DEnv2A(gym.Env):
 
             # Flatten
             flat_inds = np.ravel_multi_index((x_i,y_i),(w,h),mode='clip')
+            #print(flat_inds.shape)
 
             # Fill in line
             slice[j,:] = np.take(layer,flat_inds)
+
+        # --- 3: Mask slice ---
+        slice = np.multiply(slice, self.mask)
+        return slice'''
+
+    def get_slice(self, theta_n, phi_n):
+        theta = theta_n*math.pi
+        phi = math.radians(phi_n*PHI_MAX)
+
+        # --- 1: Get bounding box dims ---
+        h1, h2, z_min, z_max = self.get_bounding_box(theta=theta,phi=phi)
+        w = self.y0
+        h = self.z0
+
+        # --- 2: Extract slice from volume ---
+        # Get x_i and y_i for current layer
+        x_offsets = np.linspace(-h/2, h/2, h) * math.sin(phi) * math.cos(theta)
+        y_offsets = np.linspace(-h/2, h/2, h) * math.sin(phi) * math.sin(theta)
+
+        # Tile and transpose
+        x_offsets = np.transpose(np.tile(x_offsets,(w,1)))
+        y_offsets = np.transpose(np.tile(y_offsets,(w,1)))
+
+        x_i = np.tile(np.linspace(h1[0], h2[0], w),(h,1))
+        y_i = np.tile(np.linspace(h1[1], h2[1], w),(h,1))
+
+        x_i = np.array(np.rint(x_i + x_offsets),dtype='int')
+        y_i = np.array(np.rint(y_i + y_offsets),dtype='int')
+
+        # Don't forget to include the index offset from z!
+        z_i = np.transpose(np.tile(np.linspace(z_min, z_max, h),(w,1)))
+        z_i = np.array(np.rint(z_i),dtype='int')
+
+        # Flatten
+        flat_inds = np.ravel_multi_index((x_i,y_i,z_i),(self.x0,self.y0,self.z0),mode='clip')
+
+        # Fill in entire slice at once
+        slice = np.take(self.data, flat_inds)
 
         # --- 3: Mask slice ---
         slice = np.multiply(slice, self.mask)
