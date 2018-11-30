@@ -15,7 +15,7 @@ from rl.memory import SequentialMemory
 from rl.callbacks import ModelIntervalCheckpoint
 import argparse
 
-WINDOW_LENGTH = 4
+WINDOW_LENGTH = 6
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', choices=['train','test'], default='train')
@@ -27,7 +27,7 @@ args = parser.parse_args()
 
 ''' --- For the 2a version --- '''
 ENV_NAME = 'Ultra3D-v1'
-SAVED_WEIGHT_FILE = 'dqn_{}_weights_28-11-18.h5f'.format(ENV_NAME)
+SAVED_WEIGHT_FILE = 'dqn_{}_weights_100000_works.h5f'.format(ENV_NAME)
 
 # Get the environment and extract the number of actions.
 env = gym.make(ENV_NAME)
@@ -47,23 +47,24 @@ model.add(Dense(128, activation='relu'))
 model.add(Dense(nb_actions, activation='linear'))
 print(model.summary())
 
-memory = SequentialMemory(limit=50000, window_length=WINDOW_LENGTH)
-policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.1, value_test=.05, nb_steps=50000)
+memory = SequentialMemory(limit=70000, window_length=WINDOW_LENGTH)
+policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=.8, value_min=.1, value_test=.05, nb_steps=70000)
 dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=1000, gamma=.9,
                target_model_update=1000, policy=policy)
 dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 
 if args.mode == 'train':
     weights_filename = 'dqn_{}_weights.h5f'.format(ENV_NAME)
+    dqn.load_weights(weights_filename)
     checkpoint_weights_filename = 'dqn_' + ENV_NAME + '_weights_{step}.h5f'
     log_filename = 'dqn_{}_log.json'.format(ENV_NAME)
     callbacks = [ModelIntervalCheckpoint(checkpoint_weights_filename, interval=10000)]
 
-    dqn.fit(env, nb_steps=50000, visualize=False, callbacks=callbacks, verbose=1)
+    dqn.fit(env, nb_steps=70000, visualize=False, callbacks=callbacks, verbose=1)
     dqn.save_weights(weights_filename, overwrite=True)
     #dqn.test(env, nb_episodes=5,visualize=False, verbose=1)
 
 elif args.mode == 'test':
     weights_filename = SAVED_WEIGHT_FILE
     dqn.load_weights(weights_filename)
-    dqn.test(env, nb_episodes=10,visualize=True, verbose=1)
+    dqn.test(env, nb_episodes=10,visualize=False, verbose=1)

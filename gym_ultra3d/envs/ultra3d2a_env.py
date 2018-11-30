@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 INFILE = 'data/3DUS/np/np06resized.npy'
 MASKFILE = 'data/3DUS/np/mask.png'
-PHI_MAX = 30
+PHI_MAX = 45
 ALPHA_MAX = 0.1
 NETSIZE = 128
 
-HIGH_REWARD_THRESH = 1.35
+HIGH_REWARD_THRESH = 1.38
 LOW_REWARD_THRESH = -0.43
 
-NUM_STEPS_MAX = 100
+NUM_STEPS_MAX = 150
 TARGET_THETA = 0.02
 TARGET_PHI = 0.02
 
@@ -124,7 +124,7 @@ class Ultra3DEnv2A(gym.Env):
             self.success = -1
         elif self.num_steps >= NUM_STEPS_MAX:
             episode_over = True
-            reward = -NUM_STEPS_MAX
+            reward = -10#10#10#10#10#10#10#10#10#10#NUM_STEPS_MAX
             self.success = -1
         else:
             episode_over = False
