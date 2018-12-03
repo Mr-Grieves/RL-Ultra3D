@@ -15,7 +15,7 @@ from rl.memory import SequentialMemory
 from rl.callbacks import ModelIntervalCheckpoint
 import argparse
 
-WINDOW_LENGTH = 6
+WINDOW_LENGTH = 4
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', choices=['train','test'], default='train')
@@ -27,13 +27,13 @@ args = parser.parse_args()
 
 ''' --- For the 2a version --- '''
 ENV_NAME = 'Ultra3D-v1'
-SAVED_WEIGHT_FILE = 'dqn_{}_weights.h5f'.format(ENV_NAME)
+SAVED_WEIGHT_FILE = 'dqn_{}_weights_02-12-18.h5f'.format(ENV_NAME)
 NB_STEPS = 500000
 
 # Get the environment and extract the number of actions.
 env = gym.make(ENV_NAME)
 np.random.seed(1)
-env.seed(1)
+env.seed(4)
 nb_actions = env.action_space.n
 print(nb_actions)
 
@@ -49,21 +49,22 @@ model.add(Dense(nb_actions, activation='linear'))
 print(model.summary())
 
 memory = SequentialMemory(limit=NB_STEPS, window_length=WINDOW_LENGTH)
-policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.1, value_test=0., nb_steps=NB_STEPS)
+policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.1, value_test=0.05, nb_steps=NB_STEPS)
 dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=NB_STEPS/100, gamma=.9,
                target_model_update=NB_STEPS/100, policy=policy)
 dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 
 if args.mode == 'train':
-    weights_filename = 'dqn_{}_weights.h5f'.format(ENV_NAME)
+    weights_filename = 'weights/dqn_{}_weights.h5f'.format(ENV_NAME)
     checkpoint_weights_filename = 'dqn_' + ENV_NAME + '_weights_{step}.h5f'
     callbacks = [ModelIntervalCheckpoint(checkpoint_weights_filename, interval=NB_STEPS/10)]
 
     dqn.fit(env, nb_steps=NB_STEPS, visualize=False, callbacks=callbacks, verbose=1)
     dqn.save_weights(weights_filename, overwrite=True)
+    env.print_outcomes()
     #dqn.test(env, nb_episodes=5,visualize=False, verbose=1)
 
 elif args.mode == 'test':
-    weights_filename = SAVED_WEIGHT_FILE
+    weights_filename = 'weights/'+SAVED_WEIGHT_FILE
     dqn.load_weights(weights_filename)
     dqn.test(env, nb_episodes=10,visualize=True, verbose=1)

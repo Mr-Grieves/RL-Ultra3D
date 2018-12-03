@@ -19,7 +19,7 @@ NETSIZE = 128
 HIGH_REWARD_THRESH = 1.37
 LOW_REWARD_THRESH = -0.41
 
-NUM_STEPS_MAX = 150
+NUM_STEPS_MAX = 100
 TARGET_THETA = 0.02
 TARGET_PHI = 0.02
 
@@ -72,6 +72,7 @@ class Ultra3DEnv2A(gym.Env):
 
         # Store what the agent tried
         self.curr_episode = -1
+        self.outcomes = np.zeros((4,1))
         #self.action_episode_memory = []
 
     def step(self, action):
@@ -108,20 +109,25 @@ class Ultra3DEnv2A(gym.Env):
         ob = self._get_state()
         self.num_steps += 1
         if reward > HIGH_REWARD_THRESH:
-            #print("Close enough! TrueAP4 Found!")
             episode_over = True
             reward = 100
             self.success = 1
+            self.outcomes[0] += 1
         elif reward < LOW_REWARD_THRESH:
-            #print("Too far, exiting")
             episode_over = True
             reward = -10
             self.success = -1
+            self.outcomes[1] += 1
         elif self.num_steps >= NUM_STEPS_MAX:
-            #print("TOOMANYZOOS")
             episode_over = True
             reward = -10
             self.success = -1
+            self.outcomes[2] += 1
+        elif self.oob:
+            episode_over = True
+            reward = -10
+            self.success = -1
+            self.outcomes[3] += 1
         else:
             episode_over = False
             self.success = 0
@@ -133,8 +139,12 @@ class Ultra3DEnv2A(gym.Env):
         #self.action_episode_memory[self.curr_episode].append(action)
         act = self.ACTION_LOOKUP[action]
         self.curr_th = self.curr_th + self.alpha*act[0]
-        self.curr_ph = self.curr_ph + self.alpha*act[1]
         self.curr_th = (self.curr_th+1)%2-1         # Wrap theta
+
+        if (self.curr_ph == -1. and act[1] == -1) or (self.curr_ph == 1. and act[1] == 1):
+            self.oob = True
+
+        self.curr_ph = self.curr_ph + self.alpha*act[1]
         self.curr_ph = min(1,max(-1,self.curr_ph))  # Threshold phi
 
         self.curr_slice = self.get_slice(self.curr_th, self.curr_ph)
@@ -158,6 +168,7 @@ class Ultra3DEnv2A(gym.Env):
         self.alpha = ALPHA_MAX
         self.curr_slice = self.get_slice(self.curr_th, self.curr_ph)
         self.num_steps = 0
+        self.oob = False
         return self._get_state()
 
     def force_reset(self,theta,phi):
@@ -167,6 +178,7 @@ class Ultra3DEnv2A(gym.Env):
         self.alpha = ALPHA_MAX
         self.curr_slice = self.get_slice(self.curr_th, self.curr_ph)
         self.num_steps = 0
+        self.oob = False
         return self._get_state()
 
     def render(self, mode='human', close=False):
@@ -359,3 +371,9 @@ class Ultra3DEnv2A(gym.Env):
     def seed(self, seed):
         random.seed(seed)
 
+    def print_outcomes(self):
+        print("Outcomes:\n"
+              "\t Above T_max:   ",self.outcomes[0],'\n',
+              "\t Below T_min:   ",self.outcomes[1],'\n',
+              "\t Too many steps:",self.outcomes[2],'\n',
+              "\t Out of Bounds: ",self.outcomes[3],'\n')
