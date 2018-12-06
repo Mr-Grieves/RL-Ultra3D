@@ -18,3 +18,11 @@ register(
     #reward_threshold=1.0,
     #nondeterministic = True,
 )
+
+register(
+    id='Ultra3D-v2',
+    entry_point='gym_ultra3d.envs:Ultra3DEnv2A1D',
+    #timestep_limit=1000,
+    #reward_threshold=1.0,
+    #nondeterministic = True,
+)
