@@ -16,18 +16,21 @@ PHI_MAX = 30
 ALPHA_MAX = 0.1
 NETSIZE = 128
 
-HIGH_REWARD_THRESH = 1.37
-LOW_REWARD_THRESH = -0.41
+HIGH_REWARD_THRESH = 1.36
+LOW_REWARD_THRESH = -0.45
 
 NUM_STEPS_MAX = 100
 TARGET_THETA = 0.02
 TARGET_PHI = 0.02
 TARGET_D = -0.01
 
+#WARMUP_INTERC = 0.2
+#WARMUP_PORTION = 0.1
+
 class Ultra3DEnv2A1D(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    ACTION_LOOKUP = {
+    '''ACTION_LOOKUP = {
         0: [-1,-1,-1],
         1: [-1,-1, 0],
         2: [-1,-1, 1],
@@ -58,6 +61,15 @@ class Ultra3DEnv2A1D(gym.Env):
         24: [ 1, 1, 0],
         25: [ 1, 1, 1],
         #26: [ 0, 0, 0], # Can't sit still!
+    }'''
+
+    ACTION_LOOKUP = {
+        0: [-1, 0,  0],
+        1: [0, -1,  0],
+        2: [0,  0, -1],
+        3: [0,  0,  1],
+        4: [0,  1,  0],
+        5: [1,  0,  0],
     }
 
     def __init__(self):
@@ -79,7 +91,7 @@ class Ultra3DEnv2A1D(gym.Env):
         TrueAP4 = self.get_slice(TARGET_THETA, TARGET_PHI, TARGET_D)
         self.TrueAP4_masked = self.mean_mask(TrueAP4)
         self.maxreward = self.correlate(TrueAP4)
-        self.display_slice(TrueAP4)
+        #self.display_slice(TrueAP4)
 
         # Define what the agent can do
         self.action_space = spaces.Discrete(len(self.ACTION_LOOKUP))
@@ -93,8 +105,10 @@ class Ultra3DEnv2A1D(gym.Env):
         self.num_steps = 0
 
         # Store what the agent tried
-        self.curr_episode = -1
         self.outcomes = np.zeros((4,1))
+        #self.total_num_steps = 0
+        #self.max_num_steps = -1
+        #self.curr_episode = -1
         #self.action_episode_memory = []
 
     def step(self, action):
@@ -157,6 +171,7 @@ class Ultra3DEnv2A1D(gym.Env):
         #print('Just took action #',action,': curr_th =',self.curr_th,'\tcurr_ph =',self.curr_ph,'\treward =',reward,'\talpha =',self.alpha)
         return ob, reward, episode_over, {}
 
+
     def _take_action(self, action):
         #self.action_episode_memory[self.curr_episode].append(action)
         act = self.ACTION_LOOKUP[action]
@@ -193,18 +208,29 @@ class Ultra3DEnv2A1D(gym.Env):
         return np.array(spm.imresize(self.curr_slice,(NETSIZE,NETSIZE)),dtype='float') / 255.0
 
     def reset(self):
-        self.curr_episode += 1
-        #self.action_episode_memory.append([])
+        #assert(self.max_num_steps != -1)
+        #self.total_num_steps += self.num_steps
+
+        # Pseudo-random init of state
+        #rand_range = min(1.0, WARMUP_INTERC+(self.total_num_steps/self.max_num_steps*(1-WARMUP_INTERC)/WARMUP_PORTION))
+        #print("Episode =",self.total_num_steps," ->  max =",rand_range)
+        #self.curr_th = random.uniform(-rand_range, rand_range)
+        #self.curr_ph = random.uniform(-rand_range, rand_range)
+        #self.curr_d  = random.uniform(-rand_range, rand_range)
 
         # Random init of state
-        self.curr_th = random.uniform(-1,1)
-        self.curr_ph = random.uniform(-1,1)
-        self.curr_d  = random.uniform(-1,1)
+        self.curr_th = random.uniform(-1, 1)
+        self.curr_ph = random.uniform(-1, 1)
+        self.curr_d = random.uniform(-1, 1)
+
         self.alpha = ALPHA_MAX
         self.curr_slice = self.get_slice(self.curr_th, self.curr_ph, self.curr_d)
         self.num_steps = 0
         self.oob = False
         return self._get_state()
+
+    #def set_maximum_steps(self, nb):
+        #self.max_num_steps = nb
 
     def force_reset(self,theta,phi,dist):
         # Random init of state
@@ -309,21 +335,21 @@ class Ultra3DEnv2A1D(gym.Env):
         theta = theta_n*math.pi
         phi = math.radians(phi_n*PHI_MAX)
 
-        b1 = [max(-1., min(1., math.sin(theta) - math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta))),
-              max(-1., min(1., -math.cos(theta) - math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta))),
-              max(-1., min(1., -math.cos(phi)))]
+        b1 = [math.sin(theta) - math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
+              -math.cos(theta) - math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+              -math.cos(phi)]
 
-        b2 = [max(-1., min(1., -math.sin(theta) - math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta))),
-              max(-1., min(1., math.cos(theta) - math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta))),
-              max(-1., min(1., -math.cos(phi)))]
+        b2 = [-math.sin(theta) - math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
+              math.cos(theta) - math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+              -math.cos(phi)]
 
-        b3 = [max(-1., min(1., math.sin(theta) + math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta))),
-              max(-1., min(1., -math.cos(theta) + math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta))),
-              max(-1., min(1., math.cos(phi)))]
+        b3 = [math.sin(theta) + math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
+              -math.cos(theta) + math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+              math.cos(phi)]
 
-        b4 = [max(-1., min(1., -math.sin(theta) + math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta))),
-              max(-1., min(1., math.cos(theta) + math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta))),
-              max(-1., min(1., math.cos(phi)))]
+        b4 = [-math.sin(theta) + math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
+              math.cos(theta) + math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+              math.cos(phi)]
 
         #print("theta =",math.degrees(theta),"\tphi =",math.degrees(phi),"\t\th1 =,",h1,"\th2 =",h2,"\tv1 =",v1,"\tv2 =",v2)
         return b1, b2, b3, b4
@@ -332,8 +358,11 @@ class Ultra3DEnv2A1D(gym.Env):
         #print("rendering with d =",self.curr_th," and a =",self.curr_ph)
         if self.plot_opened == False:
             self.plot_opened = True
-            self.fig = plt.figure()
-            self.ax = self.fig.add_subplot(111, projection='3d')
+            self.fig = plt.figure(figsize=(6,10))
+            self.ax1 = self.fig.add_subplot(211, projection='3d')
+            self.ax1.invert_zaxis()
+            self.ax1.invert_yaxis()
+            self.ax2 = self.fig.add_subplot(212)
             plt.ion()
             plt.show()
 
@@ -342,41 +371,46 @@ class Ultra3DEnv2A1D(gym.Env):
                         0 : 'k',
                         1 : 'g'}
         frame_colour = colour_map.get(self.success)
-        self.ax.plot(xs=[-1, -1], ys=[-1, -1], zs=[-1, 1], color=frame_colour)
-        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[-1, -1], color=frame_colour)
-        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[-1, -1], color=frame_colour)
-        self.ax.plot(xs=[1, 1], ys=[1, 1], zs=[-1, 1], color=frame_colour)
-        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[1, 1], color=frame_colour)
-        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[1, 1], color=frame_colour)
-        self.ax.plot(xs=[-1, -1], ys=[1, 1], zs=[-1, 1], color=frame_colour)
-        self.ax.plot(xs=[-1, -1], ys=[-1, 1], zs=[1, 1], color=frame_colour)
-        self.ax.plot(xs=[-1, 1], ys=[-1, -1], zs=[1, 1], color=frame_colour)
-        self.ax.plot(xs=[1, 1], ys=[-1, -1], zs=[-1, 1], color=frame_colour)
-        self.ax.plot(xs=[1, 1], ys=[-1, 1], zs=[-1, -1], color=frame_colour)
-        self.ax.plot(xs=[-1, 1], ys=[1, 1], zs=[-1, -1], color=frame_colour)
-        self.ax.set_xlabel('X')
-        self.ax.set_ylabel('Y')
-        self.ax.set_zlabel('Z')
+        self.ax1.plot(xs=[-1, -1], ys=[-1, -1], zs=[-1, 1], color=frame_colour)
+        self.ax1.plot(xs=[-1, -1], ys=[-1, 1], zs=[-1, -1], color=frame_colour)
+        self.ax1.plot(xs=[-1, 1], ys=[-1, -1], zs=[-1, -1], color=frame_colour)
+        self.ax1.plot(xs=[1, 1], ys=[1, 1], zs=[-1, 1], color=frame_colour)
+        self.ax1.plot(xs=[1, 1], ys=[-1, 1], zs=[1, 1], color=frame_colour)
+        self.ax1.plot(xs=[-1, 1], ys=[1, 1], zs=[1, 1], color=frame_colour)
+        self.ax1.plot(xs=[-1, -1], ys=[1, 1], zs=[-1, 1], color=frame_colour)
+        self.ax1.plot(xs=[-1, -1], ys=[-1, 1], zs=[1, 1], color=frame_colour)
+        self.ax1.plot(xs=[-1, 1], ys=[-1, -1], zs=[1, 1], color=frame_colour)
+        self.ax1.plot(xs=[1, 1], ys=[-1, -1], zs=[-1, 1], color=frame_colour)
+        self.ax1.plot(xs=[1, 1], ys=[-1, 1], zs=[-1, -1], color=frame_colour)
+        self.ax1.plot(xs=[-1, 1], ys=[1, 1], zs=[-1, -1], color=frame_colour)
+        self.ax1.set_xlabel('X')
+        self.ax1.set_ylabel('Y')
+        self.ax1.set_zlabel('Z')
 
         # Plot target
         b1, b2, b3, b4 = self.get_bounding_box_full(TARGET_THETA, TARGET_PHI, TARGET_D)
         X = [[b1[0], b2[0]], [b3[0], b4[0]]]
         Y = [[b1[1], b2[1]], [b3[1], b4[1]]]
         Z = [[b1[2], b2[2]], [b3[2], b4[2]]]
-        self.ax.plot_surface(X, Y, Z, alpha=0.5)
+        self.ax1.plot_surface(X, Y, Z, alpha=0.5)
 
         # Plot surface
         b1, b2, b3, b4 = self.get_bounding_box_full(self.curr_th, self.curr_ph, self.curr_d)
         X = [[b1[0], b2[0]], [b3[0], b4[0]]]
         Y = [[b1[1], b2[1]], [b3[1], b4[1]]]
         Z = [[b1[2], b2[2]], [b3[2], b4[2]]]
-        self.ax.plot_surface(X, Y, Z, alpha=0.5)
+        self.ax1.plot_surface(X, Y, Z, alpha=0.5)
         if(self.success):
-            self.ax.plot_surface(X, Y, Z, alpha=0.5, color=frame_colour)
+            self.ax1.plot_surface(X, Y, Z, alpha=0.5, color=frame_colour)
         else:
-            self.ax.plot_surface(X, Y, Z, alpha=0.5)
+            self.ax1.plot_surface(X, Y, Z, alpha=0.5)
+
+        # Display current slice
+        self.ax2.imshow(self.curr_slice,cmap="gray")
 
         plt.draw()
-        plt.pause(0.0001)
+        plt.pause(0.00001)
         plt.cla()
+        self.ax1.clear()
+        self.ax2.clear()
         return

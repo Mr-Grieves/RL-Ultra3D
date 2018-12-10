@@ -1,2 +1,3 @@
-filename,trained steps,window length,gamma,PHI_MAX,ALPHA_MAX,HIGH_REWARD_THRESH,LOW_REWARD_THRESH,NUM_STEPS_MAX,TARGET_THETA,TARGET_PHI,wrap theta?,out of bounds
-dqn_Ultra3D-v1_weights_02-12-18,500000,4,0.9,30,0.1,1.37,-0.41,100,0.02,0.02,TRUE,TRUE
+filename,trained steps,window length,gamma,PHI_MAX,ALPHA_MAX,HIGH_REWARD_THRESH,LOW_REWARD_THRESH,NUM_STEPS_MAX,TARGET_THETA,TARGET_PHI,TARGET_D,wrap theta?,out of bounds,combined actions
+dqn_Ultra3D-v1_weights_02-12-18,500000,4,0.9,30,0.1,1.37,-0.41,100,0.02,0.02,n/a,TRUE,TRUE,TRUE
+dqn_Ultra3D-v2_weights_08-12-18,500000,4,0.9,30,0.1,1.36,-0.45,100,0.02,0.02,-0.01,TRUE,TRUE,FALSE

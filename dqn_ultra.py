@@ -32,13 +32,13 @@ args = parser.parse_args()
 
 ''' --- For the 2a1d version --- '''
 ENV_NAME = 'Ultra3D-v2'
-SAVED_WEIGHT_FILE = 'dqn_{}_weights.h5f'.format(ENV_NAME)
-NB_STEPS = 50000
+SAVED_WEIGHT_FILE = 'dqn_{}_weights_08-12-18.h5f'.format(ENV_NAME)
+NB_STEPS = 500000
 
 # Get the environment and extract the number of actions.
 env = gym.make(ENV_NAME)
 np.random.seed(1)
-env.seed(4)
+env.seed(3)
 nb_actions = env.action_space.n
 
 model = Sequential()
@@ -61,9 +61,10 @@ dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 if args.mode == 'train':
     assert(nb_actions != 27)
     weights_filename = 'weights/dqn_{}_weights.h5f'.format(ENV_NAME)
-    checkpoint_weights_filename = 'dqn_' + ENV_NAME + '_weights_{step}.h5f'
+    checkpoint_weights_filename = 'weights/dqn_' + ENV_NAME + '_weights_{step}.h5f'
     callbacks = [ModelIntervalCheckpoint(checkpoint_weights_filename, interval=NB_STEPS/10)]
 
+    env.set_maximum_steps(NB_STEPS)
     dqn.fit(env, nb_steps=NB_STEPS, visualize=False, callbacks=callbacks, verbose=1)
     dqn.save_weights(weights_filename, overwrite=True)
     env.print_outcomes()
