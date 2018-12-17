@@ -111,6 +111,9 @@ class Ultra3DEnv2A1D(gym.Env):
         #self.curr_episode = -1
         #self.action_episode_memory = []
 
+    def set_verbosity(self, v):
+        self.verbosity = v
+
     def step(self, action):
         """
         Parameters
@@ -168,7 +171,7 @@ class Ultra3DEnv2A1D(gym.Env):
             episode_over = False
             self.success = 0
 
-        #print('Just took action #',action,': curr_th =',self.curr_th,'\tcurr_ph =',self.curr_ph,'\treward =',reward,'\talpha =',self.alpha)
+        if(self.verbosity): print('Just took action #',action,': curr_th =',self.curr_th,'\tcurr_ph =',self.curr_ph,'\treward =',reward,'\talpha =',self.alpha)
         return ob, reward, episode_over, {}
 
 
