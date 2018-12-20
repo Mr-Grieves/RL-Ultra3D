@@ -33,7 +33,7 @@ args = parser.parse_args()
 #NB_STEPS = 500000
 
 ''' --- For the 2a1d version --- '''
-ENV_NAME = 'Ultra3D-v3'
+ENV_NAME = 'Ultra3D-v2'
 SAVED_WEIGHT_FILE = 'dqn_{}_weights_14-12-18.h5f'.format(ENV_NAME)
 NB_STEPS = 500000
 
@@ -41,7 +41,7 @@ NB_STEPS = 500000
 env = gym.make(ENV_NAME)
 np.random.seed(1)
 env.seed(3)
-env.set_verbosity(args.verbose)
+env.set_verbose(args.verbose)
 nb_actions = env.action_space.n
 
 model = Sequential()
@@ -62,6 +62,7 @@ dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmu
 dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 
 if args.mode == 'train':
+    assert(nb_actions != 7)
     weights_filename = 'weights/dqn_{}_weights.h5f'.format(ENV_NAME)
     checkpoint_weights_filename = 'weights/dqn_' + ENV_NAME + '_weights_{step}.h5f'
     callbacks = [ModelIntervalCheckpoint(checkpoint_weights_filename, interval=NB_STEPS/10)]
