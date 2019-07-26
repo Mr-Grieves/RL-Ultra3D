@@ -1,3 +1,7 @@
+import sys
+sys.path.append('/home/nathanvw/dev/RL/keras-rl')
+sys.path.append('/home/nathanvw/dev/RL/gym')
+
 import numpy as np
 import gym
 import gym_ultra3d
@@ -5,9 +9,6 @@ import gym_ultra3d
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Activation, Flatten
 from keras.optimizers import Adam
-
-import sys
-sys.path.append('/home/nathanvw/dev/RL/keras-rl')
 
 from rl.agents.dqn import DQNAgent
 from rl.policy import BoltzmannQPolicy, LinearAnnealedPolicy, EpsGreedyQPolicy
@@ -40,7 +41,7 @@ NB_STEPS = 500000
 # Get the environment and extract the number of actions.
 env = gym.make(ENV_NAME)
 np.random.seed(1)
-env.seed(3)
+env.seed(6)
 env.set_verbose(args.verbose)
 nb_actions = env.action_space.n
 
@@ -68,10 +69,10 @@ if args.mode == 'train':
     callbacks = [ModelIntervalCheckpoint(checkpoint_weights_filename, interval=NB_STEPS/10)]
 
     dqn.fit(env, nb_steps=NB_STEPS, visualize=False, callbacks=callbacks, verbose=1)
-    dqn.save_weights(weights_filename, overwrite=True)
+    #dqn.save_weights(weights_filename, overwrite=True)
     env.print_outcomes()
 
 elif args.mode == 'test':
     weights_filename = 'weights/'+SAVED_WEIGHT_FILE
     dqn.load_weights(weights_filename)
-    dqn.test(env, nb_episodes=10,visualize=not args.noplots, verbose=1)
+    dqn.test(env, nb_episodes=10, visualize=not args.noplots, verbose=1)

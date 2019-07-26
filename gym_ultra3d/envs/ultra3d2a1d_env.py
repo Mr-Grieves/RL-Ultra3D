@@ -16,8 +16,8 @@ PHI_MAX = 30
 ALPHA_MAX = 0.1
 NETSIZE = 128
 
-HIGH_REWARD_THRESH = 1.37
-LOW_REWARD_THRESH = -0.48
+HIGH_REWARD_THRESH = 1.4
+LOW_REWARD_THRESH = -2
 
 NUM_STEPS_MAX = 100
 TARGET_THETA = 0.02
@@ -70,6 +70,7 @@ class Ultra3DEnv2A1D(gym.Env):
         3: [0,  0,  1],
         4: [0,  1,  0],
         5: [1,  0,  0],
+        6: [0,  0,  0]
     }
 
     def __init__(self):
@@ -103,6 +104,7 @@ class Ultra3DEnv2A1D(gym.Env):
         self.plot_opened = False
         self.success = 0
         self.num_steps = 0
+        self.verbose = False
 
         # Store what the agent tried
         self.outcomes = np.zeros((4,1))
@@ -173,7 +175,6 @@ class Ultra3DEnv2A1D(gym.Env):
 
         if(self.verbose): print('Just took action #',action,': curr_th =',self.curr_th,'\tcurr_ph =',self.curr_ph,'\treward =',reward,'\talpha =',self.alpha)
         return ob, reward, episode_over, {}
-
 
     def _take_action(self, action):
         #self.action_episode_memory[self.curr_episode].append(action)
@@ -253,8 +254,8 @@ class Ultra3DEnv2A1D(gym.Env):
         h2 = [self.x0 / 2 - self.y0 / 2 * math.sin(theta) + dist*math.cos(theta),
               self.y0 / 2 + self.y0 / 2 * math.cos(theta) + dist*math.sin(theta)]
 
-        z_min = self.z0 / 2 - self.z0 / 2 * math.cos(phi)
-        z_max = self.z0 / 2 + self.z0 / 2 * math.cos(phi)
+        z_min = 0 #self.z0 / 2 - self.z0 / 2 * math.cos(phi)
+        z_max = self.z0 * math.cos(phi) #self.z0 / 2 + self.z0 / 2 * math.cos(phi)
         return h1, h2, z_min, z_max
 
     def get_slice(self, theta_n, phi_n, dist_n):
@@ -269,8 +270,8 @@ class Ultra3DEnv2A1D(gym.Env):
 
         # --- 2: Extract slice from volume ---
         # Get x_i and y_i for current layer
-        x_offsets = np.linspace(-h/2, h/2, h) * math.sin(phi) * math.cos(theta)
-        y_offsets = np.linspace(-h/2, h/2, h) * math.sin(phi) * math.sin(theta)
+        x_offsets = np.linspace(0, h, h) * math.sin(phi) * math.cos(theta) #np.linspace(-h/2, h/2, h) * math.sin(phi) * math.cos(theta)
+        y_offsets = np.linspace(0, h, h) * math.sin(phi) * math.sin(theta) #np.linspace(-h/2, h/2, h) * math.sin(phi) * math.sin(theta)
 
         # Tile and transpose
         x_offsets = np.transpose(np.tile(x_offsets,(w,1)))
@@ -338,6 +339,7 @@ class Ultra3DEnv2A1D(gym.Env):
         theta = theta_n*math.pi
         phi = math.radians(phi_n*PHI_MAX)
 
+        ''' origin centered:
         b1 = [math.sin(theta) - math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
               -math.cos(theta) - math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
               -math.cos(phi)]
@@ -352,7 +354,24 @@ class Ultra3DEnv2A1D(gym.Env):
 
         b4 = [-math.sin(theta) + math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
               math.cos(theta) + math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
-              math.cos(phi)]
+              math.cos(phi)]'''
+
+        # Probe centered:
+        b1 = [math.sin(theta) + dist_n*math.cos(theta),
+              -math.cos(theta) + dist_n*math.sin(theta),
+              -1]
+
+        b2 = [-math.sin(theta) + dist_n*math.cos(theta),
+              math.cos(theta) + dist_n*math.sin(theta),
+              -1]
+
+        b3 = [math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
+              -math.cos(theta) + 2*math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+              2*math.cos(phi)]
+
+        b4 = [-math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
+              math.cos(theta) + 2*math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+              2*math.cos(phi)]
 
         #print("theta =",math.degrees(theta),"\tphi =",math.degrees(phi),"\t\th1 =,",h1,"\th2 =",h2,"\tv1 =",v1,"\tv2 =",v2)
         return b1, b2, b3, b4
@@ -363,8 +382,6 @@ class Ultra3DEnv2A1D(gym.Env):
             self.plot_opened = True
             self.fig = plt.figure(figsize=(6,10))
             self.ax1 = self.fig.add_subplot(211, projection='3d')
-            self.ax1.invert_zaxis()
-            self.ax1.invert_yaxis()
             self.ax2 = self.fig.add_subplot(212)
             plt.ion()
             plt.show()
@@ -392,21 +409,28 @@ class Ultra3DEnv2A1D(gym.Env):
 
         # Plot target
         b1, b2, b3, b4 = self.get_bounding_box_full(TARGET_THETA, TARGET_PHI, TARGET_D)
-        X = [[b1[0], b2[0]], [b3[0], b4[0]]]
-        Y = [[b1[1], b2[1]], [b3[1], b4[1]]]
-        Z = [[b1[2], b2[2]], [b3[2], b4[2]]]
+        X = np.array([[b1[0], b2[0]], [b3[0], b4[0]]])
+        Y = np.array([[b1[1], b2[1]], [b3[1], b4[1]]])
+        Z = np.array([[b1[2], b2[2]], [b3[2], b4[2]]])
         self.ax1.plot_surface(X, Y, Z, alpha=0.5)
 
         # Plot surface
         b1, b2, b3, b4 = self.get_bounding_box_full(self.curr_th, self.curr_ph, self.curr_d)
-        X = [[b1[0], b2[0]], [b3[0], b4[0]]]
-        Y = [[b1[1], b2[1]], [b3[1], b4[1]]]
-        Z = [[b1[2], b2[2]], [b3[2], b4[2]]]
+        X = np.array([[b1[0], b2[0]], [b3[0], b4[0]]])
+        Y = np.array([[b1[1], b2[1]], [b3[1], b4[1]]])
+        Z = np.array([[b1[2], b2[2]], [b3[2], b4[2]]])
         self.ax1.plot_surface(X, Y, Z, alpha=0.5)
         if(self.success):
             self.ax1.plot_surface(X, Y, Z, alpha=0.5, color=frame_colour)
         else:
             self.ax1.plot_surface(X, Y, Z, alpha=0.5)
+
+        # Resize plot
+        self.ax1.invert_yaxis()
+        self.ax1.invert_zaxis()
+        self.ax1.set_xbound(-1,1)
+        self.ax1.set_zbound(-1,1)
+        self.ax1.set_ybound(-1,1)
 
         # Display current slice
         self.ax2.imshow(self.curr_slice,cmap="gray")
