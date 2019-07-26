@@ -248,11 +248,11 @@ class Ultra3DEnv2A1D(gym.Env):
         return self._get_state()
 
     def get_bounding_box(self, theta, phi, dist):
-        h1 = [self.x0 / 2 + self.y0 / 2 * math.sin(theta) + dist*math.cos(theta),
-              self.y0 / 2 - self.y0 / 2 * math.cos(theta) + dist*math.sin(theta)]
+        h1 = [self.x0 / 2 + self.y0 / 2 * math.sin(theta) + dist,#*math.cos(theta),
+              self.y0 / 2 - self.y0 / 2 * math.cos(theta)]# + dist*math.sin(theta)]
 
-        h2 = [self.x0 / 2 - self.y0 / 2 * math.sin(theta) + dist*math.cos(theta),
-              self.y0 / 2 + self.y0 / 2 * math.cos(theta) + dist*math.sin(theta)]
+        h2 = [self.x0 / 2 - self.y0 / 2 * math.sin(theta) + dist,#*math.cos(theta),
+              self.y0 / 2 + self.y0 / 2 * math.cos(theta)]# + dist*math.sin(theta)]
 
         z_min = 0 #self.z0 / 2 - self.z0 / 2 * math.cos(phi)
         z_max = self.z0 * math.cos(phi) #self.z0 / 2 + self.z0 / 2 * math.cos(phi)
@@ -357,20 +357,20 @@ class Ultra3DEnv2A1D(gym.Env):
               math.cos(phi)]'''
 
         # Probe centered:
-        b1 = [math.sin(theta) + dist_n*math.cos(theta),
-              -math.cos(theta) + dist_n*math.sin(theta),
+        b1 = [math.sin(theta) + dist_n,#*math.cos(theta),
+              -math.cos(theta),# + dist_n*math.sin(theta),
               -1]
 
-        b2 = [-math.sin(theta) + dist_n*math.cos(theta),
-              math.cos(theta) + dist_n*math.sin(theta),
+        b2 = [-math.sin(theta) + dist_n,#*math.cos(theta),
+              math.cos(theta),# + dist_n*math.sin(theta),
               -1]
 
-        b3 = [math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
-              -math.cos(theta) + 2*math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+        b3 = [math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n,#*math.cos(theta),
+              -math.cos(theta) + 2*math.sin(phi)*math.sin(theta),# + dist_n*math.sin(theta),
               2*math.cos(phi)]
 
-        b4 = [-math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n*math.cos(theta),
-              math.cos(theta) + 2*math.sin(phi)*math.sin(theta) + dist_n*math.sin(theta),
+        b4 = [-math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n,#*math.cos(theta),
+              math.cos(theta) + 2*math.sin(phi)*math.sin(theta),# + dist_n*math.sin(theta),
               2*math.cos(phi)]
 
         #print("theta =",math.degrees(theta),"\tphi =",math.degrees(phi),"\t\th1 =,",h1,"\th2 =",h2,"\tv1 =",v1,"\tv2 =",v2)

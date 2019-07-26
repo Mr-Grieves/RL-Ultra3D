@@ -13,20 +13,23 @@ N = 50
 x_arr = np.linspace(-1,1,N)
 
 # Sweep through all thetas
-for t in x_arr:
-    env3d.force_reset(t, 0, 0)
-    [ob, reward, episode_over,j] = env3d.step(6)
-    env3d.render()
+if False:
+    for t in x_arr:
+        env3d.force_reset(t, 0, 0)
+        [ob, reward, episode_over,j] = env3d.step(6)
+        env3d.render()
 
 # Sweep through all phis
-for p in x_arr:
-    env3d.force_reset(0, p, 0)
-    [ob, reward, episode_over,j] = env3d.step(6)
-    env3d.render()
+if True:
+    for p in x_arr:
+        env3d.force_reset(0, p, 0.5)
+        [ob, reward, episode_over,j] = env3d.step(6)
+        env3d.render()
 
 # Sweep through all distances
-for d in x_arr:
-    env3d.force_reset(0, 0, d)
-    [ob, reward, episode_over,j] = env3d.step(6)
-    env3d.render()
+if False:
+    for d in x_arr:
+        env3d.force_reset(0, 0, d)
+        [ob, reward, episode_over,j] = env3d.step(6)
+        env3d.render()
 
