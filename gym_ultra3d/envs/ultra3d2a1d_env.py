@@ -10,8 +10,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from PIL import Image
 
-INFILE = 'data/3DUS/np/np06resized.npy'
-MASKFILE = 'data/3DUS/np/mask.png'
+INFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/3DUS/np/np06resized.npy'
+MASKFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/3DUS/np/mask.png'
 PHI_MAX = 30
 ALPHA_MAX = 0.1
 NETSIZE = 128

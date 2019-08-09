@@ -1,4 +1,5 @@
 from gym_ultra3d.envs.ultra3d1d1a_env import Ultra3DEnv1D1A
 from gym_ultra3d.envs.ultra3d2a_env import Ultra3DEnv2A
 from gym_ultra3d.envs.ultra3d2a1d_env import Ultra3DEnv2A1D
+from gym_ultra3d.envs.ultra3d2a2d_env import Ultra3DEnv2A2D
 #from gym_ultra3d.envs.ultra3d2a1d_cupy_env import Ultra3DEnv2A1DCuPy
