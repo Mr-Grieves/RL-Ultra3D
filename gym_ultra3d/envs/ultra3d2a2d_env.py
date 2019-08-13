@@ -10,13 +10,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from PIL import Image
 
-INFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/spliced_cropped.mat'
-MASKFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/mask_clarius.png'
-PHI_MAX = 30
-ALPHA_MAX = 0.1
+INFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/downsized_mats_zeroed.mat'
+MASKFOLDER = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/masks'
 NETSIZE = 128
 MASKSIZE = 400
+DOWNSIZE_FACTOR = 2     # must either be 2, 4 or 8
 
+PHI_MAX = 30
+ALPHA_MAX = 0.1
 HIGH_REWARD_THRESH = 1.4
 LOW_REWARD_THRESH = -2
 
@@ -48,9 +49,9 @@ class Ultra3DEnv2A2D(gym.Env):
         self.__version__ = "1.0"
 
         # Load the np-converted dataset
-        self.data = spi.loadmat(INFILE)['spliced_cropped']
+        self.data = spi.loadmat(INFILE)['spliced_'+str(DOWNSIZE_FACTOR)+'x']
         self.data = np.swapaxes(self.data,1,2)
-        #self.data = np.flip(self.data,axis=2)
+        #self.data = np.flip(self.data,axis=1)
         dims = self.data.shape
         self.x0 = dims[0]
         self.y0 = dims[1]
@@ -58,7 +59,8 @@ class Ultra3DEnv2A2D(gym.Env):
         print("spliced dims =",dims)
 
         # Load the mask?
-        self.mask = spm.imread(MASKFILE)[:,:,1]
+        self.mask_size = int(MASKSIZE / DOWNSIZE_FACTOR)
+        self.mask = spm.imread(MASKFOLDER+'/mask_'+str(DOWNSIZE_FACTOR)+'x.png')[:,:,1]
         self.mask = np.uint8(self.mask/255)
 
         # Set the target image
@@ -227,26 +229,28 @@ class Ultra3DEnv2A2D(gym.Env):
         return self._get_state()
 
     def get_bounding_box(self, theta, phi, dx, dy):
-        h1 = [self.x0 / 2 + self.y0 / 2 * math.sin(theta) + dx,#+ dist,##*math.cos(theta),
-              self.y0 / 2 - self.y0 / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
+        #print('theta:',theta,'\tphi:',phi,'\tdx:',dx,'\tdy:',dy)
+        h1 = [self.x0 / 2 + self.mask_size / 2 * math.sin(theta) + dx,#+ dist,##*math.cos(theta),
+              self.y0 / 2 + self.mask_size / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
 
-        h2 = [self.x0 / 2 - self.y0 / 2 * math.sin(theta) + dx,#dist,##*math.cos(theta),
-              self.y0 / 2 + self.y0 / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
+        h2 = [self.x0 / 2 - self.mask_size / 2 * math.sin(theta) + dx,#dist,##*math.cos(theta),
+              self.y0 / 2 - self.mask_size / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
 
         z_min = 0 #self.z0 / 2 - self.z0 / 2 * math.cos(phi)
         z_max = self.z0 * math.cos(phi) #self.z0 / 2 + self.z0 / 2 * math.cos(phi)
+        #print('h1:',h1,'\th2:',h2,'\tz_min:', z_min,'\tz_max:', z_max)
         return h1, h2, z_min, z_max
 
     def get_slice(self, theta_n, phi_n, dx_n, dy_n):
         theta = theta_n*math.pi
         phi = math.radians(phi_n*PHI_MAX)
-        dx = dx_n*self.x0/2 # +/- 200 pixels
-        dy = dy_n*self.y0/2 # +/- 350 pixels
+        dx = dx_n*self.x0/2  # +/- 200 pixels
+        dy = dy_n*self.y0/2  # +/- 350 pixels
 
         # --- 1: Get bounding box dims ---
         h1, h2, z_min, z_max = self.get_bounding_box(theta=theta, phi=phi, dx=dx, dy=dy)
-        w = MASKSIZE
-        h = MASKSIZE
+        w = self.mask_size
+        h = self.mask_size
 
         # --- 2: Extract slice from volume ---
         # Get x_i and y_i for current layer
@@ -340,21 +344,21 @@ class Ultra3DEnv2A2D(gym.Env):
               math.cos(phi)]'''
 
         # Probe centered:
-        b1 = [MASKSIZE/2*math.sin(theta) + dx,#*math.cos(theta),
-              -MASKSIZE/2*math.cos(theta) + dy,# + dist_n*math.sin(theta),
+        b1 = [self.mask_size/2*math.sin(theta) + dx,#*math.cos(theta),
+              -self.mask_size/2*math.cos(theta) + dy,# + dist_n*math.sin(theta),
               0]
 
-        b2 = [-MASKSIZE/2*math.sin(theta) + dx,#*math.cos(theta),
-              MASKSIZE/2*math.cos(theta) + dy,# + dist_n*math.sin(theta),
+        b2 = [-self.mask_size/2*math.sin(theta) + dx,#*math.cos(theta),
+              self.mask_size/2*math.cos(theta) + dy,# + dist_n*math.sin(theta),
               0]
 
-        b3 = [MASKSIZE/2*math.sin(theta) + MASKSIZE*math.sin(phi)*math.cos(theta) + dx,#*math.cos(theta),
-              -MASKSIZE/2*math.cos(theta) + MASKSIZE*math.sin(phi)*math.sin(theta) + dy,# + dist_n*math.sin(theta),
-              MASKSIZE*math.cos(phi)]
+        b3 = [self.mask_size/2*math.sin(theta) + self.mask_size*math.sin(phi)*math.cos(theta) + dx,#*math.cos(theta),
+              -self.mask_size/2*math.cos(theta) + self.mask_size*math.sin(phi)*math.sin(theta) + dy,# + dist_n*math.sin(theta),
+              self.mask_size*math.cos(phi)]
 
-        b4 = [-MASKSIZE/2*math.sin(theta) + MASKSIZE*math.sin(phi)*math.cos(theta) + dx,#*math.cos(theta),
-              MASKSIZE/2*math.cos(theta) + MASKSIZE*math.sin(phi)*math.sin(theta) + dy,# + dist_n*math.sin(theta),
-              MASKSIZE*math.cos(phi)]
+        b4 = [-self.mask_size/2*math.sin(theta) + self.mask_size*math.sin(phi)*math.cos(theta) + dx,#*math.cos(theta),
+              self.mask_size/2*math.cos(theta) + self.mask_size*math.sin(phi)*math.sin(theta) + dy,# + dist_n*math.sin(theta),
+              self.mask_size*math.cos(phi)]
 
         #print("b1 =,",b1,"\tb2 =",b2,"\tb3 =",b3,"\tb4 =",b4)
         return b1, b2, b3, b4
@@ -369,17 +373,21 @@ class Ultra3DEnv2A2D(gym.Env):
             plt.ion()
             plt.show()
 
+        self.ax1.clear()
+        self.ax2.clear()
+        plt.cla()
+
         # Plot wireframe
         colour_map = { -1 : 'r',
                         0 : 'k',
                         1 : 'g'}
         frame_colour = colour_map.get(self.success)
-        x1 = -400
-        x2 = 400
-        y1 = -350
-        y2 = 350
+        x1 = -self.x0/2
+        x2 = self.x0/2
+        y1 = -self.y0/2
+        y2 = self.y0/2
         z1 = 0
-        z2 = 400
+        z2 = self.z0
         self.ax1.plot(xs=[x1, x1], ys=[y1, y1], zs=[z1, z2], color=frame_colour)
         self.ax1.plot(xs=[x1, x1], ys=[y1, y2], zs=[z1, z1], color=frame_colour)
         self.ax1.plot(xs=[x1, x2], ys=[y1, y1], zs=[z1, z1], color=frame_colour)
@@ -422,11 +430,8 @@ class Ultra3DEnv2A2D(gym.Env):
         self.ax1.set_zbound(z1, z2)
 
         # Display current slice
-        self.ax2.imshow(self.curr_slice,cmap="gray")
+        self.ax2.imshow(self.curr_slice, cmap="gray")
 
         plt.draw()
         plt.pause(0.00001)
-        plt.cla()
-        self.ax1.clear()
-        self.ax2.clear()
         return
