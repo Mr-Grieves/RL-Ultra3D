@@ -158,7 +158,8 @@ class Ultra3DEnv2A2D(gym.Env):
 
         # Update theta
         self.curr_th = self.curr_th + self.alpha*act[0]
-        self.curr_th = (self.curr_th+1)%2 - 1         # Wrap theta
+        self.curr_th = min(1,max(-1,self.curr_th))  # Threshold theta
+        #self.curr_th = (self.curr_th+1)%2 - 1         # Wrap theta
 
         # Check if agent wants to go out of bounds
         if (self.curr_ph == -1. and act[1] == -1) or \
