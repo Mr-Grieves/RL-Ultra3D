@@ -10,13 +10,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from PIL import Image
 
-INFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/downsized_mats_zeroed.mat'
+INFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/downsized_mats2_zeroed.mat'
 MASKFOLDER = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/masks'
 NETSIZE = 128
 MASKSIZE = 400
 DOWNSIZE_FACTOR = 2     # must either be 2, 4 or 8
 
 PHI_MAX = 30
+THETA_MAX = 90
 ALPHA_MAX = 0.1
 HIGH_REWARD_THRESH = 1.4
 LOW_REWARD_THRESH = -2
@@ -50,7 +51,7 @@ class Ultra3DEnv2A2D(gym.Env):
 
         # Load the np-converted dataset
         self.data = spi.loadmat(INFILE)['spliced_'+str(DOWNSIZE_FACTOR)+'x']
-        self.data = np.swapaxes(self.data,1,2)
+        #self.data = np.swapaxes(self.data,1,2)
         #self.data = np.flip(self.data,axis=1)
         dims = self.data.shape
         self.x0 = dims[0]
@@ -230,10 +231,10 @@ class Ultra3DEnv2A2D(gym.Env):
 
     def get_bounding_box(self, theta, phi, dx, dy):
         #print('theta:',theta,'\tphi:',phi,'\tdx:',dx,'\tdy:',dy)
-        h1 = [self.x0 / 2 + self.mask_size / 2 * math.sin(theta) + dx,#+ dist,##*math.cos(theta),
+        h1 = [self.x0 / 2 - self.mask_size / 2 * math.sin(theta) + dx,#+ dist,##*math.cos(theta),
               self.y0 / 2 + self.mask_size / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
 
-        h2 = [self.x0 / 2 - self.mask_size / 2 * math.sin(theta) + dx,#dist,##*math.cos(theta),
+        h2 = [self.x0 / 2 + self.mask_size / 2 * math.sin(theta) + dx,#dist,##*math.cos(theta),
               self.y0 / 2 - self.mask_size / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
 
         z_min = 0 #self.z0 / 2 - self.z0 / 2 * math.cos(phi)
@@ -242,7 +243,7 @@ class Ultra3DEnv2A2D(gym.Env):
         return h1, h2, z_min, z_max
 
     def get_slice(self, theta_n, phi_n, dx_n, dy_n):
-        theta = theta_n*math.pi
+        theta = math.radians(theta_n*THETA_MAX)
         phi = math.radians(phi_n*PHI_MAX)
         dx = dx_n*self.x0/2  # +/- 200 pixels
         dy = dy_n*self.y0/2  # +/- 350 pixels
@@ -254,7 +255,6 @@ class Ultra3DEnv2A2D(gym.Env):
 
         # --- 2: Extract slice from volume ---
         # Get x_i and y_i for current layer
-        # TODO: check that replacing h with zmax is correct
         x_offsets = np.linspace(z_min, z_max, h) * math.sin(phi) * math.cos(theta) #np.linspace(-h/2, h/2, h) * math.sin(phi) * math.cos(theta)
         y_offsets = np.linspace(z_min, z_max, h) * math.sin(phi) * math.sin(theta) #np.linspace(-h/2, h/2, h) * math.sin(phi) * math.sin(theta)
 
@@ -321,7 +321,7 @@ class Ultra3DEnv2A2D(gym.Env):
 
     # TODO: this does not adequately display out-of-bounds stuff
     def get_bounding_box_full(self, theta_n, phi_n, dx_n, dy_n):
-        theta = theta_n*math.pi
+        theta = math.radians(theta_n*THETA_MAX)
         phi = math.radians(phi_n*PHI_MAX)
         dx = dx_n*self.x0/2
         dy = dy_n*self.y0/2
@@ -364,7 +364,7 @@ class Ultra3DEnv2A2D(gym.Env):
         return b1, b2, b3, b4
 
     def render(self, mode='human', close=False):
-        print("rendering with dx =",self.curr_dx," and dy =",self.curr_dy)
+        #print("rendering with dx =",self.curr_dx," and dy =",self.curr_dy)
         if self.plot_opened == False:
             self.plot_opened = True
             self.fig = plt.figure(figsize=(6,10))

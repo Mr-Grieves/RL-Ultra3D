@@ -13,7 +13,7 @@ N = 50
 arr = np.linspace(-1,1,N)
 
 for x in arr:
-    env3d.force_reset(0,0,0,)
+    env3d.force_reset(0,1,0,x)
     [ob, reward, episode_over,j] = env3d.step(8)
     env3d.render()
 
