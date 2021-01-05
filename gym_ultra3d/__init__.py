@@ -35,6 +35,14 @@ register(
     #nondeterministic = True,
 )
 
+register(
+    id='Ultra3D-v4',
+    entry_point='gym_ultra3d.envs:Ultra3DEnv3A2D',
+    #timestep_limit=1000,
+    #reward_threshold=1.0,
+    #nondeterministic = True,
+)
+
 #register(
 #    id='Ultra3D-v3',
 #    entry_point='gym_ultra3d.envs:Ultra3DEnv2A1DCuPy',

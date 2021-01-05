@@ -14,7 +14,7 @@ INFILE = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/downsized_mats2_ze
 MASKFOLDER = '/home/nathanvw/dev/RL/gym-ultra3d/data/baby_phantom/masks'
 NETSIZE = 128
 MASKSIZE = 400
-DOWNSIZE_FACTOR = 2     # must either be 2, 4 or 8
+DOWNSIZE_FACTOR = 4     # must either be 2, 4 or 8
 
 PHI_MAX = 30
 THETA_MAX = 90
@@ -52,7 +52,7 @@ class Ultra3DEnv2A2D(gym.Env):
         # Load the np-converted dataset
         self.data = spi.loadmat(INFILE)['spliced_'+str(DOWNSIZE_FACTOR)+'x']
         #self.data = np.swapaxes(self.data,1,2)
-        #self.data = np.flip(self.data,axis=1)
+        self.data = np.flip(self.data,axis=1)
         dims = self.data.shape
         self.x0 = dims[0]
         self.y0 = dims[1]
@@ -232,11 +232,11 @@ class Ultra3DEnv2A2D(gym.Env):
 
     def get_bounding_box(self, theta, phi, dx, dy):
         #print('theta:',theta,'\tphi:',phi,'\tdx:',dx,'\tdy:',dy)
-        h1 = [self.x0 / 2 - self.mask_size / 2 * math.sin(theta) + dx,#+ dist,##*math.cos(theta),
-              self.y0 / 2 + self.mask_size / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
+        h1 = [self.x0 / 2 - self.mask_size_x / 2 * math.sin(theta) + dx,#+ dist,##*math.cos(theta),
+              self.y0 / 2 + self.mask_size_y / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
 
-        h2 = [self.x0 / 2 + self.mask_size / 2 * math.sin(theta) + dx,#dist,##*math.cos(theta),
-              self.y0 / 2 - self.mask_size / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
+        h2 = [self.x0 / 2 + self.mask_size_x / 2 * math.sin(theta) + dx,#dist,##*math.cos(theta),
+              self.y0 / 2 - self.mask_size_y / 2 * math.cos(theta) + dy]## + dist*math.sin(theta)]
 
         z_min = 0 #self.z0 / 2 - self.z0 / 2 * math.cos(phi)
         z_max = self.z0 * math.cos(phi) #self.z0 / 2 + self.z0 / 2 * math.cos(phi)

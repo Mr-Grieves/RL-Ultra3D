@@ -70,7 +70,7 @@ class Ultra3DEnv2A1D(gym.Env):
         3: [0,  0,  1],
         4: [0,  1,  0],
         5: [1,  0,  0],
-        6: [0,  0,  0]
+        #6: [0,  0,  0]
     }
 
     def __init__(self):
@@ -367,11 +367,11 @@ class Ultra3DEnv2A1D(gym.Env):
 
         b3 = [math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n,#*math.cos(theta),
               -math.cos(theta) + 2*math.sin(phi)*math.sin(theta),# + dist_n*math.sin(theta),
-              2*math.cos(phi)]
+              2*math.cos(phi)-1]
 
         b4 = [-math.sin(theta) + 2*math.sin(phi)*math.cos(theta) + dist_n,#*math.cos(theta),
               math.cos(theta) + 2*math.sin(phi)*math.sin(theta),# + dist_n*math.sin(theta),
-              2*math.cos(phi)]
+              2*math.cos(phi)-1]
 
         #print("theta =",math.degrees(theta),"\tphi =",math.degrees(phi),"\t\th1 =,",h1,"\th2 =",h2,"\tv1 =",v1,"\tv2 =",v2)
         return b1, b2, b3, b4
@@ -380,9 +380,9 @@ class Ultra3DEnv2A1D(gym.Env):
         #print("rendering with d =",self.curr_th," and a =",self.curr_ph)
         if self.plot_opened == False:
             self.plot_opened = True
-            self.fig = plt.figure(figsize=(6,10))
-            self.ax1 = self.fig.add_subplot(211, projection='3d')
-            self.ax2 = self.fig.add_subplot(212)
+            self.fig = plt.figure(figsize=(12,6))
+            self.ax1 = self.fig.add_subplot(121, projection='3d')
+            self.ax2 = self.fig.add_subplot(122)
             plt.ion()
             plt.show()
 
@@ -409,16 +409,16 @@ class Ultra3DEnv2A1D(gym.Env):
 
         # Plot target
         b1, b2, b3, b4 = self.get_bounding_box_full(TARGET_THETA, TARGET_PHI, TARGET_D)
-        X = np.array([[b1[0], b2[0]], [b3[0], b4[0]]])
-        Y = np.array([[b1[1], b2[1]], [b3[1], b4[1]]])
-        Z = np.array([[b1[2], b2[2]], [b3[2], b4[2]]])
+        X = np.clip(np.array([[b1[0], b2[0]], [b3[0], b4[0]]]), -1, 1)
+        Y = np.clip(np.array([[b1[1], b2[1]], [b3[1], b4[1]]]), -1, 1)
+        Z = np.clip(np.array([[b1[2], b2[2]], [b3[2], b4[2]]]), -1, 1)
         self.ax1.plot_surface(X, Y, Z, alpha=0.5)
 
         # Plot surface
         b1, b2, b3, b4 = self.get_bounding_box_full(self.curr_th, self.curr_ph, self.curr_d)
-        X = np.array([[b1[0], b2[0]], [b3[0], b4[0]]])
-        Y = np.array([[b1[1], b2[1]], [b3[1], b4[1]]])
-        Z = np.array([[b1[2], b2[2]], [b3[2], b4[2]]])
+        X = np.clip(np.array([[b1[0], b2[0]], [b3[0], b4[0]]]), -1, 1)
+        Y = np.clip(np.array([[b1[1], b2[1]], [b3[1], b4[1]]]), -1, 1)
+        Z = np.clip(np.array([[b1[2], b2[2]], [b3[2], b4[2]]]), -1, 1)
         self.ax1.plot_surface(X, Y, Z, alpha=0.5)
         if(self.success):
             self.ax1.plot_surface(X, Y, Z, alpha=0.5, color=frame_colour)
@@ -436,7 +436,7 @@ class Ultra3DEnv2A1D(gym.Env):
         self.ax2.imshow(self.curr_slice,cmap="gray")
 
         plt.draw()
-        plt.pause(0.00001)
+        plt.pause(0.5 if self.success else 0.00001)
         plt.cla()
         self.ax1.clear()
         self.ax2.clear()
